@@ -1,9 +1,12 @@
 <form action="/register" method="post">
-    Tunnus: <input type="text" name="username">
-    <p>
-    Salasana: <input type="password" name="password1">
-    <p>
-    Salasana uudestaan: <input type="password" name="password2">
-    <p>
-    <input type="submit" value="Luo tunnus">
-    </form>
+    <label>Username:</label>
+    <input type="text" name="username" required>
+    <br>
+    <label>Password:</label>
+    <input type="password" name="password1" required>
+    <br>
+    <label>Repeat Password:</label>
+    <input type="password" name="password2" required>
+    <br>
+    <button type="submit">Register</button>
+</form>

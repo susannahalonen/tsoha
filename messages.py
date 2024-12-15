@@ -1,4 +1,4 @@
-from db import db
+from init import db
 import users
 
 def get_list():
