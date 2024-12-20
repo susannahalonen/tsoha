@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+
+{% block title %}Create New Thread{% endblock %}
+
+{% block content %}
+<h1>Create a New Thread</h1>
+
+<form action="/new_thread" method="POST">
+    <label for="title">Thread Title:</label>
+    <input type="text" id="title" name="title" required>
+    <br><br>
+
+    <label for="category">Select Category:</label>
+    <select id="category" name="category" required>
+        <option value="">-- Choose a category --</option>
+        {% for category in categories %}
+            <option value="{{ category.id }}">{{ category.name }}</option>
+        {% endfor %}
+    </select>
+    <br><br>
+
+    <button type="submit">Create Thread</button>
+</form>
+{% endblock %}

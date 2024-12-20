@@ -1,22 +1,23 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Home Page</title>
-</head>
-<body>
-    <h1>Welcome to the Discussion App!</h1>
+{% extends "layout.html" %}
 
-    <nav>
-        {% if session.get("user_id") %}
-            <p>You are logged in. <a href="/logout">Logout</a></p>
-        {% else %}
-            <p><a href="/login">Login</a> | <a href="/register">Register</a></p>
-        {% endif %}
-    </nav>
+{% block title %}Home Page{% endblock %}
 
-    <section>
-        <h2>Discussion Areas</h2>
-        <p>List of discussion areas will be displayed here in the future.</p>
-    </section>
-</body>
-</html>
+{% block content %}
+<section>
+    <h2>Discussion Categories</h2>
+    {% if categories %}
+        <ul>
+            {% for category in categories %}
+                <li>
+                    <a href="/category/{{ category.id }}">{{ category.name }}</a> 
+                    <span>{{ category.thread_count }} threads</span> 
+                    <span>{{ category.message_count }} messages</span> 
+                    <span>Last message on: {{ category.last_message_date }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No categories available at the moment.</p>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ thread.title }}{% endblock %}
+
+{% block content %}
+<h1>{{ thread.title }}</h1>
+<p>Posted by user {{ thread.user_id }}</p>
+<p>Last message on: {{ thread.last_message_date }}</p>
+
+<h3>Messages:</h3>
+<ul>
+    {% for message in messages %}
+        <li>
+            <p>{{ message.content }}</p>
+            <span>Sent by user {{ message.user_id }} on {{ message.sent_at }}</span>
+        </li>
+    {% endfor %}
+</ul>
+
+<form action="/message/{{ thread.id }}" method="post">
+    <textarea name="message" required></textarea>
+    <button type="submit">Send Message</button>
+</form>
+{% endblock %}
