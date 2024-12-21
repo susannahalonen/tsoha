@@ -6,11 +6,31 @@ from sqlalchemy.sql import text
 
 @app.route("/")
 def index():
-    categories = db.session.execute(text("SELECT * FROM categories ORDER BY last_message_date DESC"))
-    categories = categories.fetchall()
+    user_id = session.get("user_id")
+    user_role = session.get("user_role")
+
+    if not user_id:
+        categories = db.session.execute(
+            text("SELECT * FROM categories WHERE id NOT IN (SELECT category_id FROM secret_categories)")
+        ).fetchall()
+    elif user_role == "admin":
+        categories = db.session.execute(
+            text("SELECT * FROM categories")
+        ).fetchall()
+    else:
+        categories = db.session.execute(
+            text("""
+                SELECT c.*
+                FROM categories c
+                LEFT JOIN secret_categories sc ON c.id = sc.category_id
+                WHERE sc.user_id = :user_id OR sc.category_id IS NULL
+            """),
+            {"user_id": user_id}
+        ).fetchall()
+    
     return render_template("index.html", categories=categories)
 
-@app.route("/new_thread", methods=["GET", "POST"])
+
 @app.route("/new_thread", methods=["GET", "POST"])
 def new_thread():
     if request.method == "GET":
@@ -255,12 +275,20 @@ def thread(thread_id):
         return render_template("error.html", message="Thread not found")
 
     messages = db.session.execute(
-        text("SELECT m.id, m.content, m.user_id, m.sent_at, u.username "
-             "FROM messages m "
-             "JOIN users u ON m.user_id = u.id "
-             "WHERE m.thread_id = :thread_id "
-             "ORDER BY m.sent_at ASC"),
-        {"thread_id": thread_id}
+        text("""
+            SELECT m.id, m.content, m.user_id, m.sent_at, u.username,
+                (SELECT COUNT(*) FROM likes WHERE message_id = m.id) AS like_count,
+                EXISTS (
+                    SELECT 1
+                    FROM likes
+                    WHERE message_id = m.id AND user_id = :user_id
+                ) AS user_has_liked
+            FROM messages m
+            JOIN users u ON m.user_id = u.id
+            WHERE m.thread_id = :thread_id
+            ORDER BY m.sent_at ASC
+        """),
+        {"thread_id": thread_id, "user_id": session.get("user_id")}
     ).fetchall()
 
     return render_template("thread.html", thread=thread, messages=messages)
@@ -338,3 +366,68 @@ def delete_thread(thread_id):
     db.session.commit()
     
     return redirect("/")
+
+@app.route("/make_secret/<int:category_id>", methods=["GET", "POST"])
+def make_secret(category_id):
+    user_id = session.get("user_id")
+    user_role = session.get("user_role")
+    
+    if not user_id or user_role != "admin":
+        return render_template("error.html", message="You are not authorized to manage secret categories.")
+    
+    category = db.session.execute(
+        text("SELECT id, name FROM categories WHERE id = :id"),
+        {"id": category_id}
+    ).fetchone()
+
+    if not category:
+        return render_template("error.html", message="Category not found.")
+
+    if request.method == "GET":
+        users = db.session.execute(
+            text("SELECT id, username FROM users WHERE id != :admin_id"),
+            {"admin_id": user_id}
+        ).fetchall()
+        return render_template("make_secret.html", category=category, users=users)
+    
+    if request.method == "POST":
+        selected_users = request.form.getlist("user_ids")
+        
+        for selected_user_id in selected_users:
+            db.session.execute(
+                text("INSERT INTO secret_categories (category_id, user_id) VALUES (:category_id, :user_id)"),
+                {"category_id": category_id, "user_id": selected_user_id}
+            )
+        db.session.commit()
+        
+        return redirect("/")
+
+@app.route("/like_message/<int:message_id>", methods=["POST"])
+def like_message(message_id):
+    user_id = session.get("user_id")
+    
+    if not user_id:
+        return redirect("/login")
+    
+    like = db.session.execute(
+        text("SELECT id FROM likes WHERE message_id = :message_id AND user_id = :user_id"),
+        {"message_id": message_id, "user_id": user_id}
+    ).fetchone()
+    
+    if like:
+        db.session.execute(
+            text("DELETE FROM likes WHERE id = :id"),
+            {"id": like.id}
+        )
+    else:
+        db.session.execute(
+            text("INSERT INTO likes (message_id, user_id) VALUES (:message_id, :user_id)"),
+            {"message_id": message_id, "user_id": user_id}
+        )
+    db.session.commit()
+    
+    thread_id = db.session.execute(
+        text("SELECT thread_id FROM messages WHERE id = :message_id"),
+        {"message_id": message_id}
+    ).fetchone()[0]
+    return redirect(f"/thread/{thread_id}")

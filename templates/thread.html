@@ -18,17 +18,26 @@
         <li>
             <p>{{ message.content }}</p>
             <span>Sent by {{ message.username }} on {{ message.sent_at }}</span>
+            <br>
+            <form action="/like_message/{{ message.id }}" method="POST" style="display:inline;">
+                {% if message.user_has_liked %}
+                    <button type="submit">Unlike</button>
+                {% else %}
+                    <button type="submit">Like</button>
+                {% endif %}
+            </form>
+            <span>{{ message.like_count }} likes</span>
 
             {% if message.user_id == session.get("user_id") %}
-            <form action="/delete_message/{{ message.id }}" method="POST" style="display:inline;">
-                <button type="submit">Delete</button>
-            </form>
-            <a href="/edit_message/{{ message.id }}" style="margin-left: 10px;">Edit</a>
-        {% endif %}
-        
+                <form action="/delete_message/{{ message.id }}" method="POST" style="display:inline;">
+                    <button type="submit">Delete</button>
+                </form>
+                <a href="/edit_message/{{ message.id }}" style="margin-left: 10px;">Edit</a>
+            {% endif %}
         </li>
     {% endfor %}
 </ul>
+
 
 <form action="/message/{{ thread.id }}" method="post">
     <textarea name="message" required></textarea>
