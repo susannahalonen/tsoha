@@ -10,25 +10,29 @@ def index():
     user_role = session.get("user_role")
 
     if not user_id:
+        # Show only public categories for non-logged-in users
         categories = db.session.execute(
-            text("SELECT * FROM categories WHERE is_public = TRUE")
+            text("SELECT DISTINCT c.* FROM categories c WHERE c.is_public = TRUE")
         ).fetchall()
     elif user_role == "admin":
+        # Admin sees all categories
         categories = db.session.execute(
-            text("SELECT * FROM categories")
+            text("SELECT DISTINCT c.* FROM categories c")
         ).fetchall()
     else:
+        # Regular users see public categories and secret categories they have access to
         categories = db.session.execute(
             text("""
-                SELECT c.*
+                SELECT DISTINCT c.*
                 FROM categories c
                 LEFT JOIN secret_categories sc ON c.id = sc.category_id
                 WHERE c.is_public = TRUE OR sc.user_id = :user_id
             """),
             {"user_id": user_id}
         ).fetchall()
-    
+
     return render_template("index.html", categories=categories)
+
 
 
 @app.route("/new_thread", methods=["GET", "POST"])
@@ -475,9 +479,15 @@ def toggle_public(category_id):
         text("UPDATE categories SET is_public = TRUE WHERE id = :id"),
         {"id": category_id}
     )
+
+    db.session.execute(
+        text("DELETE FROM secret_categories WHERE category_id = :category_id"),
+        {"category_id": category_id}
+    )
     db.session.commit()
 
     return redirect("/")
+
 
 @app.route("/edit_visibility/<int:category_id>", methods=["POST"])
 def edit_visibility(category_id):
@@ -506,20 +516,48 @@ def manage_category(category_id):
         return render_template("error.html", message="You are not authorized to manage this category.")
 
     category = db.session.execute(
-        text("SELECT id, name, description FROM categories WHERE id = :id"),
+        text("SELECT id, name, description, is_public FROM categories WHERE id = :id"),
         {"id": category_id}
     ).fetchone()
 
-    users = db.session.execute(
-        text("""
-            SELECT u.id, u.username
-            FROM users u
-            LEFT JOIN secret_categories sc ON u.id = sc.user_id AND sc.category_id = :category_id
-        """),
-        {"category_id": category_id}
-    ).fetchall()
+    if not category:
+        return render_template("error.html", message="Category not found.")
+
+    if request.method == "GET":
+        users = db.session.execute(
+            text("""
+                SELECT u.id, u.username, 
+                    CASE WHEN sc.user_id IS NOT NULL THEN TRUE ELSE FALSE END AS has_access
+                FROM users u
+                LEFT JOIN secret_categories sc 
+                ON u.id = sc.user_id AND sc.category_id = :category_id
+            """),
+            {"category_id": category_id}
+        ).fetchall()
+
+        return render_template("manage_category.html", category=category, users=users)
 
     if request.method == "POST":
-        pass
+        selected_user_ids = request.form.getlist("user_ids")
 
-    return render_template("manage_category.html", category=category, users=users)
+        db.session.execute(
+            text("DELETE FROM secret_categories WHERE category_id = :category_id"),
+            {"category_id": category_id}
+        )
+
+        for selected_user_id in selected_user_ids:
+            db.session.execute(
+                text("""
+                    INSERT INTO secret_categories (category_id, user_id)
+                    SELECT :category_id, :user_id
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM secret_categories 
+                        WHERE category_id = :category_id AND user_id = :user_id
+                    )
+                """),
+                {"category_id": category_id, "user_id": selected_user_id}
+            )
+        db.session.commit()
+
+        return redirect(f"/manage_category/{category_id}")
+
