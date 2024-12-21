@@ -31,9 +31,17 @@
         <p><a href="/login">Log in</a> to create a new thread.</p>
     {% endif %}
     <a href="/">Back to Home</a>
+    
     {% if session.get("user_role") == "admin" %}
-    <a href="/make_secret/{{ category.id }}" class="btn btn-warning">Make Secret</a>
+        {% if category.is_public %}
+            <form action="/make_secret/{{ category.id }}" method="POST" style="display:inline;">
+                <button type="submit" class="btn btn-secondary">Make Secret</button>
+            </form>
+        {% else %}
+            <form action="/edit_visibility/{{ category.id }}" method="POST" style="display:inline;">
+                <button type="submit" class="btn btn-warning">Edit Visibility</button>
+            </form>
+        {% endif %}
     {% endif %}
-
 </body>
 </html>

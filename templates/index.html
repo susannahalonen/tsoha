@@ -14,6 +14,9 @@
             {% for category in categories %}
                 <li>
                     <a href="/category/{{ category.id }}">{{ category.name }}</a>
+                    <span class="badge {{ 'bg-success' if category.is_public else 'bg-secondary' }}">
+                        {{ "Public" if category.is_public else "Secret" }}
+                    </span>
                     <span>{{ category.thread_count }} threads</span>
                     <span>{{ category.message_count }} messages</span>
                     <span>Last message on: {{ category.last_message_date }}</span>

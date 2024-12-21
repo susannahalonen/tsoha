@@ -3,13 +3,29 @@
 {% block title %}Login{% endblock %}
 
 {% block content %}
-<form action="/login" method="post">
-    <label>Username:</label>
-    <input type="text" name="username" required>
-    <br>
-    <label>Password:</label>
-    <input type="password" name="password" required>
-    <br>
-    <button type="submit">Login</button>
-</form>
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <div class="card shadow">
+            <div class="card-header text-center bg-primary text-white">
+                <h4>Login</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Login</button>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                <a href="/register" class="text-decoration-none">Don't have an account? Register</a>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

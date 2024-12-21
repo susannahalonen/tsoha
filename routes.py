@@ -11,7 +11,7 @@ def index():
 
     if not user_id:
         categories = db.session.execute(
-            text("SELECT * FROM categories WHERE id NOT IN (SELECT category_id FROM secret_categories)")
+            text("SELECT * FROM categories WHERE is_public = TRUE")
         ).fetchall()
     elif user_role == "admin":
         categories = db.session.execute(
@@ -23,7 +23,7 @@ def index():
                 SELECT c.*
                 FROM categories c
                 LEFT JOIN secret_categories sc ON c.id = sc.category_id
-                WHERE sc.user_id = :user_id OR sc.category_id IS NULL
+                WHERE c.is_public = TRUE OR sc.user_id = :user_id
             """),
             {"user_id": user_id}
         ).fetchall()
@@ -33,38 +33,47 @@ def index():
 
 @app.route("/new_thread", methods=["GET", "POST"])
 def new_thread():
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect("/login")
+
     if request.method == "GET":
-        categories = db.session.execute(text("SELECT id, name FROM categories")).fetchall()
+        categories = db.session.execute(
+            text("""
+                SELECT c.id, c.name
+                FROM categories c
+                LEFT JOIN secret_categories sc ON c.id = sc.category_id
+                WHERE sc.user_id = :user_id OR sc.category_id IS NULL
+            """),
+            {"user_id": user_id}
+        ).fetchall()
+
         return render_template("new_thread.html", categories=categories)
-    
+
     if request.method == "POST":
         title = request.form["title"]
         category_id = request.form["category"]
-        first_message = request.form["message"]
-        user_id = session.get("user_id")
-        
-        if user_id:
-            thread_id = db.session.execute(
-                text("INSERT INTO threads (title, user_id, category_id) VALUES (:title, :user_id, :category_id) RETURNING id"),
-                {"title": title, "user_id": user_id, "category_id": category_id}
-            ).fetchone()[0]
-            db.session.commit()
 
-            db.session.execute(
-                text("INSERT INTO messages (content, user_id, thread_id) VALUES (:content, :user_id, :thread_id)"),
-                {"content": first_message, "user_id": user_id, "thread_id": thread_id}
-            )
-            db.session.commit()
+        has_access = db.session.execute(
+            text("""
+                SELECT 1
+                FROM categories c
+                LEFT JOIN secret_categories sc ON c.id = sc.category_id
+                WHERE c.id = :category_id AND (sc.user_id = :user_id OR sc.category_id IS NULL)
+            """),
+            {"category_id": category_id, "user_id": user_id}
+        ).fetchone()
 
-            db.session.execute(
-                text("UPDATE categories SET thread_count = thread_count + 1, message_count = message_count + 1, last_message_date = CURRENT_TIMESTAMP WHERE id = :category_id"),
-                {"category_id": category_id}
-            )
-            db.session.commit()
+        if not has_access:
+            return render_template("error.html", message="You do not have access to this category.")
 
-            return redirect(f"/thread/{thread_id}") 
-        else:
-            return redirect("/login")
+        db.session.execute(
+            text("INSERT INTO threads (title, user_id, category_id) VALUES (:title, :user_id, :category_id)"),
+            {"title": title, "user_id": user_id, "category_id": category_id}
+        )
+        db.session.commit()
+
+        return redirect("/")
 
 
 @app.route("/message/<int:thread_id>", methods=["POST"])
@@ -137,14 +146,17 @@ def login():
 
         if users.login(username, password):
             user = db.session.execute(
-                text("SELECT id, role FROM users WHERE username=:username"),
+                text("SELECT id, username, role FROM users WHERE username=:username"),
                 {"username": username}
             ).fetchone()
             if user:
                 session["user_role"] = user.role
+                session["username"] = user.username 
             return redirect("/")
         else:
-            return render_template("error.html", message="Invalid username or password")
+            return render_template("login.html", error="Invalid username or password")
+
+
 
 @app.route("/logout", methods=["POST"])
 def logout():
@@ -395,12 +407,20 @@ def make_secret(category_id):
         
         for selected_user_id in selected_users:
             db.session.execute(
-                text("INSERT INTO secret_categories (category_id, user_id) VALUES (:category_id, :user_id)"),
+                text("""
+                    INSERT INTO secret_categories (category_id, user_id)
+                    SELECT :category_id, :user_id
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM secret_categories
+                        WHERE category_id = :category_id AND user_id = :user_id
+                    )
+                """),
                 {"category_id": category_id, "user_id": selected_user_id}
             )
         db.session.commit()
         
         return redirect("/")
+
 
 @app.route("/like_message/<int:message_id>", methods=["POST"])
 def like_message(message_id):
@@ -431,3 +451,75 @@ def like_message(message_id):
         {"message_id": message_id}
     ).fetchone()[0]
     return redirect(f"/thread/{thread_id}")
+
+@app.route("/toggle_public/<int:category_id>", methods=["POST"])
+def toggle_public(category_id):
+    user_id = session.get("user_id")
+    user_role = session.get("user_role")
+
+    if not user_id or user_role != "admin":
+        return render_template("error.html", message="You are not authorized to modify this category.")
+
+    category = db.session.execute(
+        text("SELECT id, is_public FROM categories WHERE id = :id"),
+        {"id": category_id}
+    ).fetchone()
+
+    if not category:
+        return render_template("error.html", message="Category not found.")
+
+    if category.is_public:
+        return redirect("/")
+
+    db.session.execute(
+        text("UPDATE categories SET is_public = TRUE WHERE id = :id"),
+        {"id": category_id}
+    )
+    db.session.commit()
+
+    return redirect("/")
+
+@app.route("/edit_visibility/<int:category_id>", methods=["POST"])
+def edit_visibility(category_id):
+    user_id = session.get("user_id")
+    user_role = session.get("user_role")
+
+    if not user_id or user_role != "admin":
+        return render_template("error.html", message="You are not authorized to edit this category.")
+
+    category = db.session.execute(
+        text("SELECT id, name, is_public FROM categories WHERE id = :id"),
+        {"id": category_id}
+    ).fetchone()
+
+    if not category:
+        return render_template("error.html", message="Category not found.")
+
+    return redirect(f"/manage_category/{category_id}")
+
+@app.route("/manage_category/<int:category_id>", methods=["GET", "POST"])
+def manage_category(category_id):
+    user_id = session.get("user_id")
+    user_role = session.get("user_role")
+
+    if not user_id or user_role != "admin":
+        return render_template("error.html", message="You are not authorized to manage this category.")
+
+    category = db.session.execute(
+        text("SELECT id, name, description FROM categories WHERE id = :id"),
+        {"id": category_id}
+    ).fetchone()
+
+    users = db.session.execute(
+        text("""
+            SELECT u.id, u.username
+            FROM users u
+            LEFT JOIN secret_categories sc ON u.id = sc.user_id AND sc.category_id = :category_id
+        """),
+        {"category_id": category_id}
+    ).fetchall()
+
+    if request.method == "POST":
+        pass
+
+    return render_template("manage_category.html", category=category, users=users)
