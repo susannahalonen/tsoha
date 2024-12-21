@@ -1,24 +1,28 @@
-{% extends "layout.html" %}
-
-{% block title %}Create New Thread{% endblock %}
-
-{% block content %}
-<h1>Create a New Thread</h1>
-
-<form action="/new_thread" method="POST">
-    <label for="title">Thread Title:</label>
-    <input type="text" id="title" name="title" required>
-    <br><br>
-
-    <label for="category">Select Category:</label>
-    <select id="category" name="category" required>
-        <option value="">-- Choose a category --</option>
-        {% for category in categories %}
-            <option value="{{ category.id }}">{{ category.name }}</option>
-        {% endfor %}
-    </select>
-    <br><br>
-
-    <button type="submit">Create Thread</button>
-</form>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New Thread</title>
+</head>
+<body>
+    <h1>Create New Thread</h1>
+    <form method="POST">
+        <label for="title">Thread Title:</label>
+        <input type="text" id="title" name="title" required>
+        <br>
+        <label for="category">Category:</label>
+        <select id="category" name="category" required>
+            {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+            {% endfor %}
+        </select>
+        <br>
+        <label for="message">First Message:</label>
+        <textarea id="message" name="message" rows="5" cols="50" placeholder="Type your message here..." required></textarea>
+        <br>
+        <button type="submit">Create Thread</button>
+    </form>
+    <a href="/">Back to Home</a>
+</body>
+</html>

@@ -3,21 +3,29 @@
 {% block title %}Home Page{% endblock %}
 
 {% block content %}
+<form action="/search" method="GET">
+    <input type="text" name="query" placeholder="Search messages" required>
+    <button type="submit">Search</button>
+</form>
 <section>
     <h2>Discussion Categories</h2>
     {% if categories %}
         <ul>
             {% for category in categories %}
                 <li>
-                    <a href="/category/{{ category.id }}">{{ category.name }}</a> 
-                    <span>{{ category.thread_count }} threads</span> 
-                    <span>{{ category.message_count }} messages</span> 
+                    <a href="/category/{{ category.id }}">{{ category.name }}</a>
+                    <span>{{ category.thread_count }} threads</span>
+                    <span>{{ category.message_count }} messages</span>
                     <span>Last message on: {{ category.last_message_date }}</span>
                 </li>
             {% endfor %}
         </ul>
     {% else %}
         <p>No categories available at the moment.</p>
+    {% endif %}
+
+    {% if session.get("user_role") == "admin" %}
+        <a href="/create_category" class="btn btn-primary">Create New Category</a>
     {% endif %}
 </section>
 {% endblock %}

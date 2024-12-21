@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ category.name }}</title>
+</head>
+<body>
+    <h1>{{ category.name }}</h1>
+    {% if category.description %}
+        <p>{{ category.description }}</p>
+    {% endif %}
+    
+    <h2>Threads</h2>
+    {% if threads %}
+        <ul>
+            {% for thread in threads %}
+                <li>
+                    <a href="/thread/{{ thread.id }}">{{ thread.title }}</a>
+                    <span>Created on: {{ thread.created_at }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No threads in this category yet.</p>
+    {% endif %}
+    
+    {% if session.get("user_id") %}
+        <a href="/new_thread">Create New Thread</a>
+    {% else %}
+        <p><a href="/login">Log in</a> to create a new thread.</p>
+    {% endif %}
+    <a href="/">Back to Home</a>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Results in {{ thread.title }}</title>
+</head>
+<body>
+    <h1>Search Results in "{{ thread.title }}"</h1>
+    
+    {% if results %}
+        <ul>
+            {% for result in results %}
+                <li>
+                    <p>{{ result.content }}</p>
+                    <span>Sent by {{ result.username }} on {{ result.sent_at }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No messages found containing "{{ query }}" in this thread.</p>
+    {% endif %}
+    
+    <a href="/thread/{{ thread.id }}">Back to Thread</a>
+</body>
+</html>
